@@ -8,8 +8,7 @@ Source for my personal site. Static HTML and CSS, no build step and no dependenc
 .
 ├── index.html              # the page
 ├── assets/
-│   ├── css/style.css       # styles (auto dark/light)
-│   └── cv/                 # CV PDFs (tarek-khider-cv-en.pdf, tarek-khider-cv-fr.pdf)
+│   └── css/style.css       # styles (auto dark/light)
 ├── Dockerfile              # nginx image that serves the site
 ├── nginx.conf              # nginx server config (headers, caching, gzip)
 ├── .dockerignore
@@ -38,6 +37,19 @@ docker run --rm -p 8080:80 khider-site
 
 The image is built from `nginx:1.27-alpine` and serves the static files with
 security headers, gzip, and long-lived caching for `/assets/`.
+
+## CV files
+
+The CV PDFs are **not** in this repo. They are hosted on Cloudflare R2 and
+served via the CDN at `https://cv.khider.fr/` (linked from `index.html`).
+Updating a CV is decoupled from the site — no commit or image rebuild needed:
+
+```sh
+EP=https://<account>.r2.cloudflarestorage.com
+aws s3 cp tarek-khider-cv-en.pdf s3://cv-khider-fr/tarek-khider-cv-en.pdf \
+  --content-type application/pdf --endpoint-url $EP
+# then purge the Cloudflare cache for the updated file
+```
 
 ## Deploy
 
