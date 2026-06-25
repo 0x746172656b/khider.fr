@@ -42,7 +42,7 @@ security headers, gzip, and long-lived caching for `/assets/`.
 
 The CV PDFs are **not** in this repo. They are hosted on Cloudflare R2 and
 served via the CDN at `https://cv.khider.fr/` (linked from `index.html`).
-Updating a CV is decoupled from the site — no commit or image rebuild needed:
+Updating a CV is decoupled from the site, no commit or image rebuild needed:
 
 ```sh
 EP=https://<account>.r2.cloudflarestorage.com
