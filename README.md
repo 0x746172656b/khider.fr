@@ -8,8 +8,7 @@ Source for my personal site. Static HTML and CSS, no build step and no dependenc
 .
 ├── index.html              # the page
 ├── assets/
-│   ├── css/style.css       # styles (auto dark/light)
-│   └── cv/                 # CV PDFs (tarek-khider-cv-en.pdf, tarek-khider-cv-fr.pdf)
+│   └── css/style.css       # styles (auto dark/light)
 ├── Dockerfile              # nginx image that serves the site
 ├── nginx.conf              # nginx server config (headers, caching, gzip)
 ├── .dockerignore
