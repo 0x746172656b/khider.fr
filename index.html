@@ -13,24 +13,48 @@
   <meta property="og:type" content="website" />
 
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%E2%9C%A6</text></svg>" />
-  <link rel="stylesheet" href="assets/css/style.css?v=2" />
+  <link rel="stylesheet" href="assets/css/style.css?v=5" />
 </head>
 <body>
+  <input type="radio" name="lang" id="lang-en" class="lang-radio" checked />
+  <input type="radio" name="lang" id="lang-fr" class="lang-radio" />
+  <div class="lang-corner">
+    <div class="seg">
+      <label class="seg-en" for="lang-en">EN</label>
+      <label class="seg-fr" for="lang-fr">FR</label>
+    </div>
+  </div>
+
   <input type="checkbox" id="cv-toggle" class="cv-check" hidden />
 
   <main class="hero">
     <h1>Tarek <span class="surname">KHIDER</span></h1>
-    <p class="role">Infrastructure Operations</p>
-
-    <p class="bio">
-      Infrastructure and datacenter operations in Paris, currently at AWS. 26, with five years
-      in the field, and a student at 42 Paris on the side.
+    <p class="role">
+      <span class="lang-en">Infrastructure Operations</span>
+      <span class="lang-fr">Opérations d'infrastructure</span>
     </p>
 
     <p class="bio">
-      I self-host nearly everything I use, all managed with GitOps and built around a 3-node
+      <span class="lang-en">Infrastructure and datacenter operations in Paris, currently at AWS. 26, with five years
+      in the field, and a student at 42 Paris on the side.</span>
+      <span class="lang-fr">Opérations d'infrastructure et de datacenter à Paris, actuellement chez AWS. 26 ans, cinq ans
+      d'expérience, et étudiant à 42 Paris en parallèle.</span>
+    </p>
+
+    <p class="bio">
+      <span class="lang-en">I self-host nearly everything I use, all managed with GitOps and built around a 3-node
       Talos Kubernetes cluster. This site is hosted on it, and the infrastructure code is
-      <a href="https://github.com/0x746172656b/homelab-infra" target="_blank" rel="noopener noreferrer">free to audit</a>.
+      <a href="https://github.com/0x746172656b/homelab-infra" target="_blank" rel="noopener noreferrer">free to audit</a>.</span>
+      <span class="lang-fr">J'héberge moi-même presque tout ce que j'utilise, le tout géré en GitOps autour d'un cluster
+      Kubernetes Talos à 3 nœuds. Ce site y est hébergé, et le code de l'infrastructure est
+      <a href="https://github.com/0x746172656b/homelab-infra" target="_blank" rel="noopener noreferrer">librement auditable</a>.</span>
+    </p>
+
+    <p class="hero-links">
+      <a href="/postmortems/">
+        <span class="lang-en">Postmortems &rarr;</span>
+        <span class="lang-fr">Post-mortem &rarr;</span>
+      </a>
     </p>
 
     <div class="actions">
@@ -39,7 +63,8 @@
           <rect x="2" y="4" width="20" height="16" rx="2"/>
           <path d="m22 6-10 7L2 6"/>
         </svg>
-        Get in touch
+        <span class="lang-en">Get in touch</span>
+        <span class="lang-fr">Me contacter</span>
       </a>
       <a class="btn btn-ghost" href="https://github.com/0x746172656b" target="_blank" rel="noopener noreferrer">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -53,7 +78,8 @@
           <path d="m7 10 5 5 5-5"/>
           <path d="M12 15V3"/>
         </svg>
-        Download CV
+        <span class="lang-en">Download CV</span>
+        <span class="lang-fr">Télécharger le CV</span>
       </label>
     </div>
 
@@ -63,14 +89,18 @@
   <footer>
     <a class="infra-badge" href="https://github.com/0x746172656b/homelab-infra" target="_blank" rel="noopener noreferrer" title="See the repo that runs this site">
       <span class="dot"></span>
-      Self-hosted on my own Kubernetes cluster.
+      <span class="lang-en">Self-hosted on my own Kubernetes cluster.</span>
+      <span class="lang-fr">Hébergé sur mon propre cluster Kubernetes.</span>
     </a>
   </footer>
 
   <div class="cv-modal">
     <label for="cv-toggle" class="cv-backdrop" aria-hidden="true"></label>
     <div class="cv-card" role="dialog" aria-label="Choose CV language">
-      <p class="cv-card-title">Choose a language</p>
+      <p class="cv-card-title">
+        <span class="lang-en">Choose a language</span>
+        <span class="lang-fr">Choisir une langue</span>
+      </p>
       <a class="cv-menu-item" href="https://cv.khider.fr/tarek-khider-cv-en.pdf" download>English</a>
       <a class="cv-menu-item" href="https://cv.khider.fr/tarek-khider-cv-fr.pdf" download>Français</a>
     </div>
