@@ -7,6 +7,8 @@
   --accent: #e08a4f;
   --accent-dim: #c9763d;
   --link: #e89b66;
+  --ok: #7fc98a;
+  --crit: #e5786e;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -21,6 +23,8 @@
     --accent: #b85c22;
     --accent-dim: #9c4d1c;
     --link: #b85c22;
+    --ok: #3f8f4a;
+    --crit: #c23b30;
   }
 }
 
@@ -317,7 +321,16 @@ footer {
   background: var(--bg-soft);
   color: var(--muted);
 }
-.chip.sev { border-color: var(--accent); color: var(--accent); }
+.chip.resolved {
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+.chip.sev {
+  border-color: color-mix(in srgb, var(--crit) 50%, transparent);
+  color: var(--crit);
+  background: color-mix(in srgb, var(--crit) 12%, transparent);
+}
 
 /* Language toggle (zero JS, CSS-only radios). English is the default. */
 .lang-radio { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
