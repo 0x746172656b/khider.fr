@@ -121,6 +121,18 @@ h1 {
 }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 
+.btn-accent {
+  background: var(--bg-soft);
+  border-color: var(--crit);
+  color: var(--crit);
+}
+.btn-accent:hover { background: var(--crit); border-color: var(--crit); color: #ffffff; }
+
+.side-actions {
+  display: flex;
+  margin-top: 28px;
+}
+
 /* ---------- CV popup (zero JS, CSS-only) ---------- */
 .cv-open { cursor: pointer; }
 
@@ -217,22 +229,6 @@ footer {
   border-radius: 50%;
   background: var(--muted);
 }
-
-/* ---------- Home nav link to writing ---------- */
-.hero-links {
-  display: flex;
-  gap: 18px;
-  margin: 0 0 30px;
-  font-family: var(--mono);
-  font-size: 0.95rem;
-}
-.hero-links a {
-  color: var(--accent);
-  font-weight: 500;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.12s ease;
-}
-.hero-links a:hover { border-bottom-color: var(--accent); }
 
 /* ---------- Writing (blog) ---------- */
 .doc {
