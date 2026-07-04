@@ -13,28 +13,17 @@
   <link rel="stylesheet" href="/assets/css/style.css?v=6" />
 </head>
 <body>
-  <input type="radio" name="lang" id="lang-en" class="lang-radio" checked />
-  <input type="radio" name="lang" id="lang-fr" class="lang-radio" />
-  <div class="lang-corner">
-    <div class="seg">
-      <label class="seg-en" for="lang-en">EN</label>
-      <label class="seg-fr" for="lang-fr">FR</label>
-    </div>
-  </div>
-
   <main class="doc">
     <nav class="topnav">
       <a class="back-link" href="/postmortems/">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px">
           <path d="m15 18-6-6 6-6"/>
         </svg>
-        <span class="lang-en">Postmortems</span>
-        <span class="lang-fr">Post-mortem</span>
+        Postmortems
       </a>
     </nav>
 
-    <!-- ================= ENGLISH ================= -->
-    <article class="lang-en">
+    <article>
       <header class="post-head">
         <h1>An NVMe failure corrupts Postgres and app volumes over iSCSI</h1>
         <div class="meta-row">
@@ -128,112 +117,12 @@
         </ul>
       </div>
     </article>
-
-    <!-- ================= FRANÇAIS ================= -->
-    <article class="lang-fr">
-      <header class="post-head">
-        <h1>Une panne NVMe corrompt Postgres et des volumes applicatifs sur iSCSI</h1>
-        <div class="meta-row">
-          <span class="chip">2026-07-03</span>
-          <span class="chip resolved">Résolu</span>
-          <span class="chip sev">SEV1</span>
-        </div>
-      </header>
-
-      <div class="prose">
-        <p class="lead">
-          L'un des deux SSD NVMe de mon pool RAID1 Synology est tombé en panne. Il a
-          coupé des sessions d'écriture iSCSI en plein vol, ce qui a laissé les systèmes
-          de fichiers XFS de plusieurs LUN avec un journal sale. Kubernetes ne pouvait
-          plus les monter, et chaque workload adossé à ces volumes est tombé. Je les ai
-          tous réparés et j'ai récupéré chaque octet. Aucune perte de données.
-        </p>
-
-        <h2>Impact</h2>
-        <ul>
-          <li><strong>Hors service :</strong> authentik (Postgres refusait de démarrer), sonarr, prowlarr, prometheus.</li>
-          <li><strong>Durée :</strong> volumes non montables jusqu'à ce que chaque journal XFS soit remis à zéro et réparé.</li>
-          <li><strong>Perte de données :</strong> aucune. Les bases ont rejoué leur propre WAL une fois les systèmes de fichiers revenus.</li>
-        </ul>
-
-        <h2>Cause racine</h2>
-        <p>Le disque en panne (<code>nvme1n1</code>) ne s'est pas usé. Le SMART a prouvé une NAND défectueuse :</p>
-        <ul>
-          <li><code>available_spare</code> : 0 % (sous le seuil)</li>
-          <li><code>media_errors</code> : 2478</li>
-          <li><code>percentage_used</code> : 2 % (quasiment aucune usure)</li>
-          <li><code>critical_warning</code> : bit « spare sous le seuil » activé</li>
-        </ul>
-        <p>
-          Il s'agissait donc d'un défaut matériel, pas d'une usure d'écriture. Ma
-          première hypothèse, selon laquelle la stack de monitoring aurait poussé le SSD
-          à la mort par volume d'écriture, était fausse : le disque survivant (Samsung
-          970 EVO Plus 1 To) affiche 0 % d'usure et 0 erreur.
-        </p>
-        <p>
-          Quand le disque a lâché, le pool RAID1 est passé en Dégradé et les sessions de
-          la cible iSCSI servant les LUN ont été interrompues en pleine écriture. Le XFS
-          de ces LUN s'est retrouvé avec un journal non propre, si bien que le montage
-          suivant a échoué avec <code>can't read superblock</code>.
-        </p>
-
-        <h2>Détection</h2>
-        <p>
-          <code>authentik-postgresql-0</code> bloqué en <code>ContainerCreating</code>
-          avec <code>mount: can't read superblock on /dev/sdd</code>. En creusant, la
-          même panne de journal sale est apparue sur les LUN de sonarr, prowlarr et
-          prometheus.
-        </p>
-
-        <h2>Résolution</h2>
-        <p>
-          Talos est immuable, il n'y a donc pas de shell hôte pour lancer des outils de
-          système de fichiers. J'ai lancé un pod de secours privilégié (Alpine +
-          <code>xfsprogs</code>, hostPath <code>/dev</code>) épinglé sur le nœud qui
-          détenait les sessions, puis pour chaque LUN :
-        </p>
-        <ol>
-          <li>Confirmé le système de fichiers avec <code>blkid</code> et un <code>xfs_repair -n</code> en lecture seule.</li>
-          <li>Remis à zéro le journal sale et réparé avec <code>xfs_repair -L</code> (destructeur pour le journal uniquement, pas pour les données).</li>
-          <li>Vérifié avec un montage de test en lecture seule avant de relâcher le volume.</li>
-        </ol>
-        <p>
-          Prometheus a demandé une étape de plus : une session iSCSI Synology fantôme
-          maintenait ouverte la cible mono-session et bloquait la connexion (erreur 19).
-          Basculer la cible Désactiver/Activer dans SAN Manager l'a nettoyée, puis la
-          réparation XFS a pu se faire. Après réparation, tous les pods sont revenus en
-          Running et les bases ont récupéré leur WAL.
-        </p>
-
-        <h2>Ce qui a bien marché</h2>
-        <ul>
-          <li>Aucune donnée perdue. Le RAID1 a conservé une bonne copie, et <code>xfs_repair -L</code> ne sacrifie que le journal.</li>
-          <li>Des essais à blanc en lecture seule avant chaque étape destructrice : aucune approximation.</li>
-        </ul>
-
-        <h2>Ce qui a mal marché</h2>
-        <ul>
-          <li>Points uniques de défaillance dans le chemin de récupération : les cibles iSCSI mono-session ont produit une session fantôme qui bloquait la reconnexion.</li>
-          <li>Pas d'alerte SMART. Le disque mourait en silence ; je n'ai découvert le spare à 0 % qu'en me connectant en SSH après la panne.</li>
-          <li>Pas de sauvegarde hors baie des données Postgres. La récupération reposait entièrement sur le membre RAID1 survivant.</li>
-        </ul>
-
-        <h2>Suites à donner</h2>
-        <ul class="task-list">
-          <li class="done">Remplacer le NVMe en panne et reconstruire le miroir.</li>
-          <li>Ajouter des alertes SMART (<code>available_spare</code>, <code>media_errors</code>, <code>critical_warning</code>) dans la stack de monitoring.</li>
-          <li>Ajouter un CronJob <code>pg_dump</code> pour authentik et des sauvegardes de config pour les applis arr vers un volume séparé, indépendant du pool NVMe.</li>
-          <li>Récupérer l'espace en thin provisioning avec <code>fstrim</code> une fois le pool sain, et ajouter <code>discard</code> à la storage class pour que la récupération reste automatique.</li>
-        </ul>
-      </div>
-    </article>
   </main>
 
   <footer>
     <a class="infra-badge" href="https://github.com/0x746172656b/homelab-infra" target="_blank" rel="noopener noreferrer" title="See the repo that runs this site">
       <span class="dot"></span>
-      <span class="lang-en">Self-hosted on my own Kubernetes cluster.</span>
-      <span class="lang-fr">Hébergé sur mon propre cluster Kubernetes.</span>
+      Self-hosted on my own Kubernetes cluster.
     </a>
   </footer>
 </body>
