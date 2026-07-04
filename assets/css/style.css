@@ -234,6 +234,27 @@ footer {
   background: var(--muted);
 }
 
+/* ---------- 404 page ---------- */
+.error-page {
+  align-items: center;
+  text-align: center;
+}
+.error-img {
+  width: 220px;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+.error-page h1 { font-size: clamp(2.2rem, 6vw, 3rem); }
+.error-page hr {
+  width: 64px;
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
 /* ---------- Writing (blog) ---------- */
 .doc {
   flex: 1;
