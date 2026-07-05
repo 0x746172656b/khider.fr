@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSD failure takes down the entire homelab | Tarek KHIDER</title>
+  <meta name="description" content="Postmortem: the single SSD backing my Proxmox LVM thin pool failed and took down all ten VMs. Recovery meant mounting the QEMU disk images by hand." />
+  <meta name="author" content="Tarek Khider" />
+  <meta property="og:title" content="An SSD failure takes down the entire homelab" />
+  <meta property="og:description" content="A blameless postmortem from my self-hosted Proxmox home lab." />
+  <meta property="og:type" content="article" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%E2%9C%A6</text></svg>" />
+  <link rel="stylesheet" href="/assets/css/style.css?v=7" />
+</head>
+<body>
+  <main class="doc">
+    <nav class="topnav">
+      <a class="back-link" href="/postmortems/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+        Postmortems
+      </a>
+    </nav>
+
+    <article>
+      <header class="post-head">
+        <h1>An SSD failure takes down the entire homelab</h1>
+        <div class="meta-row">
+          <span class="chip">2025-04-27</span>
+          <span class="chip resolved">Resolved</span>
+          <span class="chip sev">SEV1</span>
+        </div>
+      </header>
+
+      <div class="prose">
+        <p class="lead">
+          My Proxmox host kept all of its VM storage on a single spare 256GB SSD: ten
+          VMs on one consumer drive, no RAID, no backups. The drive started failing
+          writes, the LVM thin pool holding every VM disk went partial, and the entire
+          lab was down for over 12 hours. I salvaged the files that mattered by
+          mounting the QEMU disk images by hand. Some data was permanently lost;
+          nothing mission critical.
+        </p>
+
+        <h2>Impact</h2>
+        <ul>
+          <li><strong>Down:</strong> all ten VMs on the host, including LAN DNS, the Traefik reverse proxy, GitLab, and the CI runner.</li>
+          <li><strong>Duration:</strong> at least 12 hours from the first write errors to services back up.</li>
+          <li><strong>Data loss:</strong> yes, permanent. Most files were recovered from the disk images; what could not be recovered was not mission critical.</li>
+        </ul>
+
+        <h2>Root cause</h2>
+        <p>
+          The <code>pve</code> volume group, including the thin pool <code>pve/data</code>
+          that backed every VM disk, lived on a single 256GB SSD with no redundancy.
+          Under load the drive began failing writes. Inside the guests the kernel logged
+          <code>I/O error, dev sda, op 0x1:(WRITE)</code> and long runs of
+          <code>Buffer I/O error on device sda1</code>. Every failing operation was a
+          write; reads were still served from cache, so services stayed partially
+          responsive while nothing was actually being persisted.
+        </p>
+        <figure>
+          <img src="guest-write-errors.png" alt="Kernel log inside a VM showing repeated buffer I/O errors on sda1 and write I/O errors on sda" loading="lazy" />
+          <figcaption>Inside a guest VM: every failing operation is a write. Reads were still served from cache.</figcaption>
+        </figure>
+        <p>
+          Then the drive dropped out entirely. The physical volume went missing from the
+          volume group, and every VM start failed with
+          <code>Refusing activation of partial LV</code>, including
+          <code>pve/data</code> itself. With the thin pool unavailable, no VM disk could
+          be activated.
+        </p>
+        <figure>
+          <img src="lvm-partial.png" alt="Proxmox task log showing LVM refusing activation of partial LVs for every VM, including pve/data" loading="lazy" />
+          <figcaption>LVM refusing to activate the partial LVs, including the thin pool pve/data itself.</figcaption>
+        </figure>
+
+        <h2>Detection</h2>
+        <p>
+          There was no disk-health alerting, so the first signal was services
+          misbehaving. I opened the console of the VM hosting DNS and the Traefik
+          reverse proxy and found the kernel logging a continuous stream of I/O errors,
+          with the same sectors failing repeatedly.
+        </p>
+        <p>
+          Rebooting did not help. The VM dropped to the initramfs shell:
+          <code>fsck exited with status code 4</code>,
+          <code>UNEXPECTED INCONSISTENCY: RUN fsck MANUALLY</code>. A manual fsck
+          repaired the inode counts and reported <code>FILE SYSTEM WAS MODIFIED</code>,
+          but the write errors resumed as soon as the system was back up. Once the host
+          itself was restarted, the thin pool never came back.
+        </p>
+
+        <h2>Resolution</h2>
+        <p>
+          The pool was gone as running storage, so recovery was file salvage, not repair:
+        </p>
+        <ol>
+          <li>Pulled the VM disk images off the dying drive and attached them read-only on a healthy machine.</li>
+          <li>Mounted the guest filesystems inside the images by hand and copied out what mattered: compose stacks, configs, application data.</li>
+          <li>Rebuilt the VMs from the cloud-init template and redeployed the services on fresh storage.</li>
+        </ol>
+        <p>
+          Most of the files I needed were retrieved this way. Some were not, and that
+          data is gone for good. Nothing in that category was mission critical.
+        </p>
+
+        <h2>What went well</h2>
+        <ul>
+          <li>The guest kernel logs pointed straight at dying storage, not at software: every failure was a write.</li>
+          <li>Mounting the QEMU images by hand recovered most of what mattered, even after LVM refused to activate anything.</li>
+          <li>Nothing mission critical was lost.</li>
+        </ul>
+
+        <h2>What went wrong</h2>
+        <ul>
+          <li>The host storage was a 256GB SSD I had laying around and decided to reuse for this host. That one device was a single point of failure for ten VMs.</li>
+          <li>No backups of any VM. Recovery meant forensics on a dying disk instead of a restore.</li>
+          <li>LAN DNS lived on the same failing host, so the outage affected the whole network, not just the lab.</li>
+        </ul>
+
+        <h2>Follow-ups</h2>
+        <ul class="task-list">
+          <li class="done">Replace the dead SSD and rebuild the node.</li>
+          <li class="done">Run production homelab storage on a RAID1 mirror.</li>
+          <li class="done">Back up VMs on a schedule: weekly for everything, daily for the critical ones.</li>
+        </ul>
+      </div>
+    </article>
+  </main>
+
+  <footer>
+    <a class="infra-badge" href="https://github.com/0x746172656b/homelab-infra" target="_blank" rel="noopener noreferrer" title="See the repo that runs this site">
+      <span class="dot"></span>
+      Self-hosted on my own Kubernetes cluster.
+    </a>
+  </footer>
+</body>
+</html>
