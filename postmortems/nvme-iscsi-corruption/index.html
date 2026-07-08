@@ -112,7 +112,7 @@
         <ul class="task-list">
           <li class="done">Replace the failed NVMe and rebuild the mirror.</li>
           <li class="done">Add SMART alerting (<code>available_spare</code>, <code>media_errors</code>, <code>critical_warning</code>) into the monitoring stack.</li>
-          <li>Add a <code>pg_dump</code> CronJob for authentik and config backups for the arr apps to a separate volume, independent of the NVMe pool.</li>
+          <li class="done">Off-site backups for authentik and the arr apps: Velero takes daily CSI snapshots and moves the volume data to Cloudflare R2, fully off the NVMe pool and off the NAS.</li>
           <li>Reclaim thin-provisioned space with <code>fstrim</code> once the pool is healthy, and add <code>discard</code> to the storage class so reclamation stays automatic.</li>
         </ul>
       </div>
