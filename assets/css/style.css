@@ -181,24 +181,22 @@ h1 {
 
 /* ---------- Page links ---------- */
 .page-links {
-  margin: 0 0 40px;
+  margin: 0 0 44px;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  align-items: baseline;
+  column-gap: 14px;
+  row-gap: 8px;
+  font-family: var(--mono);
+  font-size: 0.95rem;
 }
 .page-links a {
-  font-family: var(--mono);
-  font-size: 0.9rem;
   color: var(--accent);
-  padding: 8px 18px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.12s ease;
 }
-.page-links a:hover {
-  border-color: var(--accent);
-  background: var(--bg-soft);
-}
+.page-links a:hover { border-bottom-color: var(--accent); }
+.page-links .sep { color: var(--muted); }
 
 .location {
   margin-top: 40px;
