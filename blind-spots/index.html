@@ -39,26 +39,18 @@
         <h2>The monitoring runs on the thing it monitors</h2>
         <p>
           Prometheus, Alertmanager, and the pipeline that pushes alerts to my phone
-          all run inside the Kubernetes cluster. If the whole cluster goes down,
-          nothing outside it can page me. I find out by noticing the outage myself.
-          For these workloads, discovering a full outage a few hours late costs
-          nothing, so an external monitoring service is not worth the subscription.
-        </p>
-
-        <h2>The "external" probe is not external</h2>
-        <p>
-          A blackbox probe checks <code>https://khider.fr</code>, but the prober runs
-          inside the same network as the site. It proves the site is up from inside
-          the network, not that it is reachable from the Internet. An ISP outage
-          takes the probe and the site down together, silently.
+          all run inside the Kubernetes cluster, and the blackbox probe that checks
+          <code>https://khider.fr</code> runs inside the same network as the site.
+          If the cluster or the connection goes down, nothing outside the lab can
+          page me. I find out by noticing the outage myself, and for these
+          workloads, discovering a full outage a few hours late costs nothing.
         </p>
 
         <h2>One site, one ISP, one power feed</h2>
         <p>
           Everything lives in one place, behind one residential connection and one
           public IP, with no failover. Cloudflare hides the origin, but a power cut
-          or an ISP outage takes everything down until it comes back. A second site
-          would remove this risk; the cost is not justified for a home lab.
+          or an ISP outage takes everything down until it comes back.
         </p>
 
         <h2>Every byte of state sits on one NAS</h2>
@@ -75,10 +67,8 @@
         <p>
           The three-node cluster is three virtual machines on a single Proxmox host.
           Kubernetes tolerates losing a node; it does not tolerate losing the machine
-          all three run on. The redundancy protects against software failures and
-          node-level maintenance, not against hardware failure of the host. A second
-          server used to spread this risk, but I retired it because the heat and
-          noise were not worth the redundancy at home.
+          all three run on. A second server used to spread this risk, but I retired
+          it because the heat and noise at home outweighed the redundancy.
         </p>
 
         <h2>On-call is one person</h2>
