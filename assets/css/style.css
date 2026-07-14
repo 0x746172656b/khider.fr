@@ -179,25 +179,26 @@ h1 {
   outline: none;
 }
 
-/* ---------- Postmortems highlight link ---------- */
-.pm-highlight {
-  margin: 0 0 36px;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: stretch;
+/* ---------- Page links ---------- */
+.page-links {
+  margin: 0 0 40px;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
-.pm-highlight a {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 24px;
-  font-size: 1.2rem;
-  font-weight: 700;
+.page-links a {
+  font-family: var(--mono);
+  font-size: 0.9rem;
   color: var(--accent);
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
-.pm-highlight a:hover .pm-arrow { transform: translateX(3px); }
-.pm-arrow { transition: transform 0.15s ease; }
+.page-links a:hover {
+  border-color: var(--accent);
+  background: var(--bg-soft);
+}
 
 .location {
   margin-top: 40px;
