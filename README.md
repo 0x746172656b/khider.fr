@@ -6,9 +6,15 @@ Source for my personal site. Static HTML and CSS, no build step and no dependenc
 
 ```
 .
-├── index.html              # the page
+├── index.html              # home page
+├── 404.html                # custom 404 page
+├── architecture/           # how the site is served (diagram + prose)
+├── postmortems/            # incident writeups, one directory per incident
+├── blind-spots/            # accepted failure modes of the lab
 ├── assets/
 │   └── css/style.css       # styles (auto dark/light)
+├── robots.txt
+├── sitemap.xml
 ├── Dockerfile              # nginx image that serves the site
 ├── nginx.conf              # nginx server config (headers, caching, gzip)
 ├── .dockerignore
