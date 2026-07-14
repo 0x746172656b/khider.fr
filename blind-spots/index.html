@@ -71,18 +71,15 @@
           time plus the last day of data.
         </p>
 
-        <!-- TODO(Tarek): confirm before publishing. The monitoring scrapes a single
-             Proxmox host, and an older postmortem describes all VMs on one hypervisor.
-             If the three Talos nodes are still VMs on that one box, this section
-             belongs here; if they are separate machines now, delete it.
         <h2>Three nodes, one hypervisor</h2>
         <p>
-          The "three-node" cluster is three virtual machines on a single Proxmox
-          host. Kubernetes tolerates losing a node; it does not tolerate losing the
-          machine all three run on. The redundancy protects against software failures
-          and node-level maintenance, not against hardware failure of the host.
+          The three-node cluster is three virtual machines on a single Proxmox host.
+          Kubernetes tolerates losing a node; it does not tolerate losing the machine
+          all three run on. The redundancy protects against software failures and
+          node-level maintenance, not against hardware failure of the host. A second
+          server used to spread this risk, but I retired it because the heat and
+          noise were not worth the redundancy at home.
         </p>
-        -->
 
         <h2>On-call is one person</h2>
         <p>
