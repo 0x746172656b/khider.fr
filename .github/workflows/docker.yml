@@ -41,6 +41,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            # Monotonic UTC datetime tag so Renovate can bump versions
+            # instead of chasing the mutable `latest` digest.
+            type=raw,value={{date 'YYYYMMDD-HHmmss'}},enable={{is_default_branch}}
             type=sha,format=long
             type=ref,event=branch
 
@@ -51,5 +54,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Push a single image manifest, not an attestation index, so GHCR's
+          # untagged cleanup can't prune a child out of a still-tagged digest.
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
