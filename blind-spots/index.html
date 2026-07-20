@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Known blind spots | Tarek KHIDER</title>
-  <meta name="description" content="The deliberate weaknesses of the home lab serving this site: in-cluster monitoring, a single site and ISP, and one NAS holding all state." />
+  <meta name="description" content="The deliberate weaknesses of the home lab serving this site: in-cluster monitoring, a single site and ISP, one NAS holding the cluster's state, and one hypervisor running everything." />
   <meta name="author" content="Tarek Khider" />
   <meta property="og:title" content="Known blind spots | Tarek Khider" />
   <meta property="og:description" content="Every infrastructure has failure modes it chooses not to cover. These are mine, and why I accept them." />
@@ -53,22 +53,33 @@
           or an ISP outage takes everything down until it comes back.
         </p>
 
-        <h2>Every byte of state sits on one NAS</h2>
+        <h2>Every byte of the cluster's state sits on one NAS</h2>
         <p>
-          The cluster has three nodes, but all of their persistent volumes are served
-          over iSCSI by a single Synology NAS, already the root cause of
-          <a href="/postmortems/nvme-iscsi-corruption/">one postmortem</a>. RAID1
-          covers a dead drive, not a dead power supply, a bad DSM update, or a
+          The Kubernetes cluster has three nodes, but all of their persistent volumes
+          are served over iSCSI by a single Synology NAS, already the root cause of
+          <a href="/postmortems/nvme-iscsi-corruption/">one postmortem</a> and a
+          contributing factor in <a href="/postmortems/poe-port-frame-corruption/">another</a>.
+          RAID1 covers a dead drive, not a dead power supply, a bad DSM update, or a
           controller bug. Nightly off-site backups to R2 cap the damage at restore
-          time plus the last day of data.
+          time plus the last day of data. This is largely a Kubernetes-specific risk,
+          not a whole-lab one: several services run as plain Docker containers
+          outside the cluster, with their own storage, independent of the NAS. Not
+          every one of them is fully independent, though: some still depend on the
+          NAS indirectly, through a database or shared storage that lives there, so a
+          NAS failure can reach outside the cluster too, not just through Kubernetes.
         </p>
 
-        <h2>Three nodes, one hypervisor</h2>
+        <h2>One hypervisor for the whole lab</h2>
         <p>
-          The three-node cluster is three virtual machines on a single Proxmox host.
-          Kubernetes tolerates losing a node; it does not tolerate losing the machine
-          all three run on. A second server used to spread this risk, but I retired
-          it because the heat and noise at home outweighed the redundancy.
+          The three Kubernetes node VMs, a separate Docker host running Nextcloud
+          and the DNS resolver behind two reverse proxies (one internet-facing, one
+          internal-only for admin tools), and the CI runner in its own LXC
+          container all live as guests on the same single Proxmox server.
+          Kubernetes tolerates losing a node; it does not tolerate losing the
+          machine all three run on, and that failure is not contained to the
+          cluster: the same hypervisor going down takes every one of those other
+          guests with it too. A second server used to spread this risk, but I
+          retired it because the heat and noise at home outweighed the redundancy.
         </p>
 
         <h2>On-call is one person</h2>

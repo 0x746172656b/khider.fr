@@ -8,7 +8,6 @@ COPY robots.txt /usr/share/nginx/html/robots.txt
 COPY sitemap.xml /usr/share/nginx/html/sitemap.xml
 COPY assets/ /usr/share/nginx/html/assets/
 COPY postmortems/ /usr/share/nginx/html/postmortems/
-COPY architecture/ /usr/share/nginx/html/architecture/
 COPY blind-spots/ /usr/share/nginx/html/blind-spots/
 
 EXPOSE 80

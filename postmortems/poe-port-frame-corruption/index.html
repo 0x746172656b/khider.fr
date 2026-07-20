@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A dying PoE port corrupts packets and crashes my storage | Tarek KHIDER</title>
+  <meta name="description" content="Postmortem: a decayed PoE port on a Ubiquiti USW Flex Mini silently corrupted large packets toward my NAS, dropped storage sessions every 12 hours for three days, and looked like everything except what it was." />
+  <meta name="author" content="Tarek Khider" />
+  <meta property="og:title" content="A dying PoE port corrupts packets and crashes my storage" />
+  <meta property="og:description" content="A blameless postmortem from my self-hosted Kubernetes home lab." />
+  <meta property="og:type" content="article" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%E2%9C%A6</text></svg>" />
+  <link rel="stylesheet" href="/assets/css/style.css?v=11" />
+  <style>
+    .term {
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 0.82em;
+      line-height: 1.55;
+      overflow-x: auto;
+      white-space: pre;
+      color: var(--muted);
+    }
+    .term .ok { color: var(--ok); }
+    .term .bad { color: var(--crit); }
+    .term .cmd { color: var(--text); }
+    .term .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <nav class="topnav">
+      <a class="back-link" href="/postmortems/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+        Postmortems
+      </a>
+    </nav>
+
+    <article>
+      <header class="post-head">
+        <h1>A dying PoE port corrupts packets and crashes my storage</h1>
+        <div class="meta-row">
+          <span class="chip">2026-07-20</span>
+          <span class="chip resolved">Resolved</span>
+          <span class="chip sev">SEV1</span>
+        </div>
+      </header>
+
+      <div class="prose">
+        <p class="lead">
+          For three days my cluster lost its storage roughly every 12 hours.
+          Sessions to the NAS dropped, filesystems shut themselves down, and pods
+          died with I/O errors, while every network status light stayed green. The
+          cause was the PoE port on a Ubiquiti USW Flex Mini going bad, silently
+          corrupting data in one direction only. No data loss.
+        </p>
+
+        <h2>Impact</h2>
+        <ul>
+          <li><strong>Down repeatedly over three days:</strong> authentik (Postgres), prometheus, grafana, alertmanager, sonarr, prowlarr. One full-cluster storage outage on day three, which also force-shut-down the filesystem on a seventh, orphaned volume left over from a deleted backup clone; no live workload used it.</li>
+          <li><strong>Degraded:</strong> writes to the NAS from any machine crawled at roughly 160 KB/s. Backups failed on the worst day.</li>
+          <li><strong>Data loss:</strong> none. Every filesystem replayed its journal after remount.</li>
+        </ul>
+
+        <h2>Timeline</h2>
+        <ul>
+          <li><strong>Jul 16, 04:00 UTC:</strong> the first storage connection error ever logged on a cluster node, during the nightly backup window. Nobody noticed.</li>
+          <li><strong>Jul 17 to 18:</strong> a handful of errors per day, always during backups. Still unnoticed.</li>
+          <li><strong>Jul 19:</strong> 690 connection errors in the backup window. Sessions collapsed cluster-wide, filesystems went read-only, most stateful workloads down. I blamed the NAS itself, force-rebooted it, and recovered the volumes by hand. It relapsed the same evening.</li>
+          <li><strong>Jul 20, ~00:30:</strong> another spontaneous drop killed seven of nine volumes overnight.</li>
+          <li><strong>Jul 20, morning:</strong> I tried to grab a file by torrenting it directly onto the NAS over NFS, and the transfer speed was pitiful, far below what my internet connection or the NAS should allow. That is what sent me looking at the network instead of the NAS again: testing from more than one machine ruled out anything specific to my PC, and by the afternoon, methodical A/B testing had pinned the fault to one switch port.</li>
+        </ul>
+
+        <h2>Root cause</h2>
+        <p>
+          The NAS was plugged into a Ubiquiti USW Flex Mini, itself powered over PoE
+          from the main switch upstream:
+          <code>USW 24 PoE &rarr; USW Flex Mini (PoE powered) &rarr; NAS</code>.
+          Its uplink port, carrying both power and data, had degraded internally:
+          whenever 48 volts of PoE power was actually present, some of the data
+          passing through that same port got corrupted too, worse while the switch
+          was actively drawing power, milder if the voltage was merely present but
+          unused.
+        </p>
+        <p>
+          Bigger packets failed far more often than small ones: a basic connectivity
+          check lost about 2%; the same check with NAS-sized packets lost 22%.
+          Storage traffic is made almost entirely of these larger packets, and the
+          nightly backups, the heaviest sustained transfers of the day, reliably
+          pushed the loss past the breaking point. As the port kept degrading, even
+          ordinary background traffic became enough to trigger it, and the failures
+          went from "only during backups" to "any time".
+        </p>
+        <p>Here is how that turned into dead containers, confirmed step by step in the logs:</p>
+        <ol>
+          <li>Corrupted data gets thrown away and resent instead of delivered: a bulk transfer toward the NAS showed a 16% resend rate, capping its throughput almost to a halt.</li>
+          <li>The NAS and the cluster nodes check on each other every few seconds over iSCSI; when those checks get lost too, the connection is declared dead after a 5-second timeout, logged repeatedly as <code>ping timeout of 5 secs expired</code> followed by a connection error.</li>
+          <li>The connection drops mid-write, and the filesystem shuts itself down to avoid corrupting an incomplete write.</li>
+          <li>The connection reconnects, but the filesystem stays shut down: every read or write to it fails, so the container crashes, sometimes while Kubernetes still shows the pod as <code>Running</code>.</li>
+        </ol>
+
+        <h2>Why it was hard to see</h2>
+        <ul>
+          <li><strong>Every status light was green.</strong> UniFi reported a healthy 1 Gbps link on that port the entire time. A link being "up" only means the two ends can hear each other at all, not that every bit of data they exchange arrives intact.</li>
+          <li><strong>Every error counter was zero.</strong> The NAS's network card reported no errors whatsoever; the corrupted data was discarded before it ever got far enough to be counted.</li>
+          <li><strong>The problem only showed up in one direction.</strong> Reading from the NAS was fast and clean the entire time; only writing to it was affected. Half of any given test looked completely normal.</li>
+          <li><strong>A previous, similar-looking incident primed the wrong suspect.</strong> Two weeks earlier, a <a href="/postmortems/nvme-iscsi-corruption/">failed NVMe drive in the NAS</a> had dropped iSCSI sessions mid-write and left several filesystems corrupted, the same symptoms I was now seeing. So the NAS itself was the natural first suspect again.</li>
+          <li><strong>The NAS's own event log seemed to back that suspicion up.</strong> Its SAN event log showed a burst of warnings right after every night's backup software took its LUN snapshots, which looked exactly like a backup-driven storage problem. It turned out to be a real bug, just an unrelated one: stale login attempts retrying target IDs that no longer existed once each night's temporary backup clones were deleted. Noisy, cosmetic, and coincidentally timed with the actual outages, not the cause of them.</li>
+          <li><strong>An early test on a workbench passed cleanly.</strong> Tested with a short cable on a desk, the Flex Mini worked fine, PoE and all. The short cable had enough slack to paper over the damage; it only failed once the longer cable run to the NAS was reattached.</li>
+        </ul>
+
+        <h2>Isolation</h2>
+        <p>One variable at a time, using a 200-packet test with NAS-sized packets as the yardstick:</p>
+        <div class="term"><span class="cmd">$ ping -c 200 -i 0.05 -s 1400 nas</span>   <span class="muted"># USW Flex Mini bypassed entirely, NAS straight into the USW 24 PoE</span>
+<span class="ok">200 packets transmitted, 200 received, 0% packet loss</span>
+
+<span class="cmd">$ ping -c 200 -i 0.05 -s 1400 nas</span>   <span class="muted"># USW Flex Mini back in place, powered over PoE as usual</span>
+<span class="bad">200 packets transmitted, 105 received, 47.5% packet loss</span>
+
+<span class="cmd">$ ping -c 200 -i 0.05 -s 1400 nas</span>   <span class="muted"># same cabling, Flex Mini powered by a USB-C charger instead of PoE</span>
+<span class="ok">200 packets transmitted, 200 received, 0% packet loss</span>
+
+<span class="cmd">$ ping -c 200 -i 0.05 -s 1400 nas</span>   <span class="muted"># still USB-C powered, but uplink on the PoE port, UniFi still energizing it with 48V unused</span>
+<span class="bad">200 packets transmitted, 190 received, 5% packet loss</span>
+
+<span class="cmd">$ ping -c 200 -i 0.05 -s 1400 nas</span>   <span class="muted"># same cabling, PoE disabled for that port in the UniFi controller</span>
+<span class="ok">200 packets transmitted, 200 received, 0% packet loss</span></div>
+        <p>
+          Same cables, same physical ports, same everything else; only the presence
+          of PoE voltage on that one port decided whether the data got through
+          intact. That cleared the cables, the USW 24 PoE, and the NAS itself, and
+          left the USW Flex Mini's uplink port unambiguously at fault.
+        </p>
+
+        <h2>Resolution</h2>
+        <ul>
+          <li>The NAS now plugs directly into the USW 24 PoE. The USW Flex Mini is retired.</li>
+          <li>The seven affected volumes were recovered without any reboots, by remounting each one from inside the storage driver's own pods and letting the filesystem replay its journal.</li>
+          <li>Write throughput went from roughly 160 KB/s to 77.5 MB/s.</li>
+        </ul>
+
+        <h2>What went well</h2>
+        <ul>
+          <li>No data loss across the three separate session drops in three days. Filesystem journaling plus databases replaying their own transaction logs held the line.</li>
+          <li>Off-site backups kept working almost the whole time, even mid-degradation.</li>
+          <li>The logs on both ends preserved a three-day error timeline that pinned down the exact onset and disproved the software theories.</li>
+          <li>Having already worked through the same kind of volume recovery during the earlier NVMe incident meant day three's recovery took minutes, not hours, no relearning it under pressure.</li>
+        </ul>
+
+        <h2>What went wrong</h2>
+        <ul>
+          <li>The "link up" indicator isn't proof the network is fine, it stayed green for three days while almost a quarter of traffic was being corrupted, and nothing in the stack checks for that on its own.</li>
+          <li>Confirmation bias: the previous incident made the NAS the default suspect, and I spent day one troubleshooting it instead of the network path in front of it.</li>
+          <li>Nothing alerted on the early warning signs: connection errors in the cluster's own logs, and a failed backup, both showed up days before the outage got bad.</li>
+        </ul>
+
+        <h2>Follow-ups</h2>
+        <ul class="task-list">
+          <li class="done">Remove the USW Flex Mini from the storage path; NAS attached directly to the USW 24 PoE.</li>
+          <li>Alert on storage connection errors in the cluster logs; they preceded the outage by three days.</li>
+          <li>Add a periodic large-packet loss check toward the NAS to the monitoring stack; small-packet checks miss exactly this failure.</li>
+        </ul>
+      </div>
+    </article>
+  </main>
+</body>
+</html>
