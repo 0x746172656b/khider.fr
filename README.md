@@ -8,7 +8,6 @@ Source for my personal site. Static HTML and CSS, no build step and no dependenc
 .
 ├── index.html              # home page
 ├── 404.html                # custom 404 page
-├── architecture/           # how the site is served (diagram + prose)
 ├── postmortems/            # incident writeups, one directory per incident
 ├── blind-spots/            # accepted failure modes of the lab
 ├── assets/
