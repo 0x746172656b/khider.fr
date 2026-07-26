@@ -52,5 +52,5 @@ image and pushes it to the GitHub Container Registry (GHCR) on every push to
 `main`. Pull and run the published image:
 
 ```sh
-docker run --rm -p 8080:80 ghcr.io/0x746172656b/khider.fr:latest
+docker run --rm -p 8080:80 ghcr.io/tkhider/khider.fr:latest
 ```
